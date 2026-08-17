@@ -1,0 +1,327 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomStatus {
+  libre
+  ocupada
+  tiempo_extra
+  limpieza
+  fuera_servicio
+
+  @@map("room_status")
+}
+
+enum RentalStatus {
+  activa
+  tiempo_extra
+  finalizada
+  cancelada
+
+  @@map("rental_status")
+}
+
+enum UserRole {
+  cajera
+  supervisor
+  admin
+
+  @@map("user_role")
+}
+
+enum PaymentMethod {
+  efectivo
+  tarjeta
+  transferencia
+  mixto
+
+  @@map("payment_method")
+}
+
+enum SyncStatus {
+  pendiente
+  enviado
+  error
+
+  @@map("sync_status")
+}
+
+enum SyncEntity {
+  rental
+  rental_extension
+  rental_product
+  payment
+  cash_session
+
+  @@map("sync_entity")
+}
+
+model Hotel {
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  address       String?
+  phone         String?
+  legacyCodEmpr Int?     @map("legacy_cod_empr")
+  legacyCodSucu Int?     @map("legacy_cod_sucu")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  roomCategories RoomCategory[]
+  rooms          Room[]
+  users          User[]
+  cashSessions   CashSession[]
+  productCategories ProductCategory[]
+  products       Product[]
+  rentals        Rental[]
+  syncOutbox     SyncOutbox[]
+  loyaltyConfig  LoyaltyConfig?
+  allowedNetworks AllowedNetwork[]
+
+  @@map("hotels")
+}
+
+model RoomCategory {
+  id               String   @id @default(uuid())
+  hotelId          String   @map("hotel_id")
+  name             String
+  description      String?
+  basePrice4h      Decimal  @map("base_price_4h")
+  extraBlockPrice  Decimal  @map("extra_block_price")
+  baseHours        Int      @default(5) @map("base_hours")
+  extraBlockHours  Int      @default(4) @map("extra_block_hours")
+  legacyCodTiha    Int?     @map("legacy_cod_tiha")
+  capacity         Int?     @default(2)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  hotel   Hotel   @relation(fields: [hotelId], references: [id])
+  rooms   Room[]
+  rentals Rental[]
+
+  @@unique([hotelId, name])
+  @@map("room_categories")
+}
+
+model Room {
+  id         String     @id @default(uuid())
+  hotelId    String     @map("hotel_id")
+  categoryId String     @map("category_id")
+  number     String
+  floor      String?
+  qrCode     String     @unique @map("qr_code")
+  legacyCodHabi Int?    @map("legacy_cod_habi")
+  status     RoomStatus @default(libre)
+  active     Boolean    @default(true)
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  hotel    Hotel        @relation(fields: [hotelId], references: [id])
+  category RoomCategory @relation(fields: [categoryId], references: [id])
+  rentals  Rental[]
+
+  @@unique([hotelId, number])
+  @@map("rooms")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  hotelId      String    @map("hotel_id")
+  username     String
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  role         UserRole  @default(cajera)
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  hotel        Hotel          @relation(fields: [hotelId], references: [id])
+  cashSessions CashSession[]
+
+  @@unique([hotelId, username])
+  @@map("users")
+}
+
+model CashSession {
+  id             String    @id @default(uuid())
+  hotelId        String    @map("hotel_id")
+  cashierId      String    @map("cashier_id")
+  openingAmount  Decimal   @default(0) @map("opening_amount")
+  closingAmount  Decimal?  @map("closing_amount")
+  expectedAmount Decimal?  @map("expected_amount")
+  difference     Decimal?
+  openedAt       DateTime  @default(now()) @map("opened_at")
+  closedAt       DateTime? @map("closed_at")
+  status         String    @default("abierta")
+
+  hotel   Hotel    @relation(fields: [hotelId], references: [id])
+  cashier User     @relation(fields: [cashierId], references: [id])
+  rentals Rental[]
+
+  @@map("cash_sessions")
+}
+
+model ProductCategory {
+  id      String @id @default(uuid())
+  hotelId String @map("hotel_id")
+  name    String
+
+  hotel    Hotel     @relation(fields: [hotelId], references: [id])
+  products Product[]
+
+  @@unique([hotelId, name])
+  @@map("product_categories")
+}
+
+model Product {
+  id           String   @id @default(uuid())
+  hotelId      String   @map("hotel_id")
+  categoryId   String?  @map("category_id")
+  internalCode String   @map("internal_code")
+  legacyCodProd String? @map("legacy_cod_prod")
+  name         String
+  imageUrl     String?  @map("image_url")
+  price        Decimal
+  cost         Decimal? @default(0)
+  stock        Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  hotel          Hotel            @relation(fields: [hotelId], references: [id])
+  category       ProductCategory? @relation(fields: [categoryId], references: [id])
+  rentalProducts RentalProduct[]
+
+  @@unique([hotelId, internalCode])
+  @@map("products")
+}
+
+model Rental {
+  id                String       @id @default(uuid())
+  hotelId           String       @map("hotel_id")
+  roomId            String       @map("room_id")
+  cashierId         String       @map("cashier_id")
+  cashSessionId     String       @map("cash_session_id")
+  categoryId        String       @map("category_id")
+  basePrice         Decimal      @map("base_price")
+  extraBlockPrice   Decimal      @map("extra_block_price")
+  baseHours         Int          @default(5) @map("base_hours")
+  extraBlockHours   Int          @default(4) @map("extra_block_hours")
+  legacyPehaCod     Int?         @map("legacy_peha_cod")
+  legacyPeveCod     Int?         @map("legacy_peve_cod")
+  checkoutRequested       Boolean   @default(false) @map("checkout_requested")
+  checkoutRequestedMethod String?   @map("checkout_requested_method")
+  checkoutRequestedAt     DateTime? @map("checkout_requested_at")
+  checkIn           DateTime     @default(now()) @map("check_in")
+  expectedCheckout  DateTime     @map("expected_checkout")
+  checkOut          DateTime?    @map("check_out")
+  status            RentalStatus @default(activa)
+  extraChargesTotal Decimal      @default(0) @map("extra_charges_total")
+  productsTotal     Decimal      @default(0) @map("products_total")
+  totalAmount       Decimal      @default(0) @map("total_amount")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  hotel       Hotel            @relation(fields: [hotelId], references: [id])
+  room        Room             @relation(fields: [roomId], references: [id])
+  cashSession CashSession      @relation(fields: [cashSessionId], references: [id])
+  category    RoomCategory     @relation(fields: [categoryId], references: [id])
+  extensions  RentalExtension[]
+  products    RentalProduct[]
+  payments    Payment[]
+
+  @@map("rentals")
+}
+
+model RentalExtension {
+  id            String   @id @default(uuid())
+  rentalId      String   @map("rental_id")
+  hours         Int      @default(4)
+  amount        Decimal
+  autoGenerated Boolean  @default(true) @map("auto_generated")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  rental Rental @relation(fields: [rentalId], references: [id])
+
+  @@map("rental_extensions")
+}
+
+model RentalProduct {
+  id        String   @id @default(uuid())
+  rentalId  String   @map("rental_id")
+  productId String   @map("product_id")
+  quantity  Int
+  unitPrice Decimal  @map("unit_price")
+  subtotal  Decimal
+  addedBy   String?  @map("added_by")
+  delivered Boolean  @default(true)
+  note      String?
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  rental  Rental  @relation(fields: [rentalId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("rental_products")
+}
+
+model Payment {
+  id        String        @id @default(uuid())
+  rentalId  String        @map("rental_id")
+  cashierId String        @map("cashier_id")
+  amount    Decimal
+  method    PaymentMethod
+  paidAt    DateTime      @default(now()) @map("paid_at")
+
+  rental Rental @relation(fields: [rentalId], references: [id])
+
+  @@map("payments")
+}
+
+model SyncOutbox {
+  id         String     @id @default(uuid())
+  hotelId    String     @map("hotel_id")
+  entityType SyncEntity @map("entity_type")
+  entityId   String     @map("entity_id")
+  payload    Json
+  status     SyncStatus @default(pendiente)
+  attempts   Int        @default(0)
+  lastError  String?    @map("last_error")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  sentAt     DateTime?  @map("sent_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id])
+
+  @@map("sync_outbox")
+}
+
+model LoyaltyConfig {
+  id                    String   @id @default(uuid())
+  hotelId               String   @unique @map("hotel_id")
+  programName           String   @default("Extasis Club") @map("program_name")
+  discountLabel         String   @default("10% de descuento en tu próxima estadía") @map("discount_label")
+  highlightProductType  String?  @map("highlight_product_type")
+  backgroundColor       String   @default("#170B22") @map("background_color")
+  active                Boolean  @default(false)
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id])
+
+  @@map("loyalty_config")
+}
+
+model AllowedNetwork {
+  id        String   @id @default(uuid())
+  hotelId   String   @map("hotel_id")
+  cidr      String
+  label     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id])
+
+  @@map("allowed_networks")
+}

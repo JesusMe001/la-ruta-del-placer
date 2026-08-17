@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: lilax_db
+      POSTGRES_USER: lilax_user
+      POSTGRES_PASSWORD: CAMBIAR
+    volumes:
+      - lilax_db_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432" # solo accesible localmente, no exponer a internet
+
+  api:
+    build: .
+    restart: always
+    env_file: .env
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+
+volumes:
+  lilax_db_data:
