@@ -8,6 +8,7 @@ Un solo proyecto React (Vite) con **tres páginas independientes**:
 | Panel de cajera | `http://localhost:5173/cajera.html` | App conectada al backend de Hotel Lilax: login, mapa de habitaciones, check-in/out, consumo, cobro |
 | Menú del huésped | `http://localhost:5173/menu.html?code=<qr_code>` | Página pública que se abre al escanear el QR físico de la habitación |
 | Administración | `http://localhost:5173/admin.html` | Solo admin/supervisor: crear cajeras, dashboard en tiempo real e histórico |
+| Limpieza | `http://localhost:5173/housekeeping.html?code=<credencial>` | Sin login: el personal de limpieza toma y libera habitaciones |
 
 ## Arrancar en local
 

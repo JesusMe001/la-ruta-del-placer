@@ -63,6 +63,20 @@
 }
 .google-wallet-btn:hover{background:#1a1a1a;}
 
+.badge-modal-overlay{
+  position:fixed; inset:0; background:rgba(10,4,16,0.7); backdrop-filter:blur(3px);
+  display:flex; align-items:center; justify-content:center; z-index:200; padding:20px;
+}
+.badge-modal{
+  background:var(--surface); border:1px solid var(--border); border-radius:18px;
+  padding:26px; max-width:320px; width:100%; text-align:center;
+}
+.badge-name{font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:20px;}
+.badge-code{font-size:13px; color:var(--text-dim); margin-top:2px; letter-spacing:0.08em;}
+.badge-qr-img{width:100%; max-width:220px; margin:18px auto 4px; border-radius:10px;}
+.badge-actions{display:flex; gap:10px; margin-top:16px;}
+.badge-actions button{flex:1;}
+
 .data-table{width:100%; border-collapse:collapse; font-size:13px;}
 .data-table th{
   text-align:left; color:var(--text-dim); font-weight:600; font-size:11px; text-transform:uppercase;

@@ -11,7 +11,7 @@ services:
     volumes:
       - lilax_db_data:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:5432:5432" # solo accesible localmente, no exponer a internet
+      - "127.0.0.1:5433:5432" # solo accesible localmente, no exponer a internet
 
   api:
     build: .

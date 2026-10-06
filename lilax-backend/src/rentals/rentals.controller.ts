@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles, RolesGuard } from '../auth/roles.guard';
 import { RentalsService } from './rentals.service';
-import { IsInt, IsNumberString, IsString, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsNumberString, IsOptional, IsString, Min, MaxLength } from 'class-validator';
 
 class CheckInDto {
   @IsString() roomId: string;
@@ -16,6 +17,15 @@ class AddProductDto {
 class PaymentDto {
   @IsNumberString() amount: string;
   @IsString() method: string; // efectivo | tarjeta | transferencia | mixto
+}
+
+class CourtesyDto {
+  @IsIn(['product', 'fixed', 'percent_total', 'percent_room']) type: string;
+  @IsOptional() @IsString() productId?: string;
+  @IsOptional() @IsInt() @Min(1) quantity?: number;
+  @IsOptional() @IsNumber() @Min(0.01) amount?: number;
+  @IsOptional() @IsNumber() @Min(0.01) percent?: number;
+  @IsOptional() @IsString() @MaxLength(200) note?: string;
 }
 
 @UseGuards(JwtAuthGuard)
@@ -66,5 +76,22 @@ export class RentalsController {
   @Get('checkout-requests/:hotelId')
   checkoutRequests(@Param('hotelId') hotelId: string) {
     return this.rentalsService.listCheckoutRequests(hotelId);
+  }
+
+  @Post(':id/courtesy')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'supervisor')
+  applyCourtesy(@Param('id') id: string, @Body() dto: CourtesyDto, @Req() req: any) {
+    return this.rentalsService.applyCourtesy(id, req.user.userId, dto as any);
+  }
+
+  @Get('courtesy-notifications/:hotelId')
+  courtesyNotifications(@Param('hotelId') hotelId: string) {
+    return this.rentalsService.listCourtesyNotifications(hotelId);
+  }
+
+  @Post(':id/acknowledge-courtesy')
+  acknowledgeCourtesy(@Param('id') id: string) {
+    return this.rentalsService.acknowledgeCourtesy(id);
   }
 }

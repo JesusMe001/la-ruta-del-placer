@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { InformixService } from '../informix/informix.service';
 import { LocalNetworkGuard } from '../common/local-network.guard';
 import { Type } from 'class-transformer';
 import {
@@ -60,7 +61,7 @@ class RequestCheckoutDto {
 @UseGuards(LocalNetworkGuard)
 @Controller('qr')
 export class QrController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private informixService: InformixService) {}
 
   private serializeAccount(rental: any) {
     return {
@@ -125,6 +126,13 @@ export class QrController {
 
   @Post(':code/order')
   async order(@Param('code') code: string, @Body() dto: GuestOrderDto) {
+    const { rental: existingRental } = await this.findActiveRentalByCode(code);
+    if (existingRental?.checkoutRequested) {
+      throw new BadRequestException(
+        'Ya pediste la cuenta — no se pueden agregar más productos. Si necesitas algo más, comunícate con recepción.',
+      );
+    }
+
     const rows = await this.prisma.$queryRaw<{ fn_guest_add_product: string }[]>`
       SELECT fn_guest_add_product(${code}, ${dto.productId}::uuid, ${dto.quantity}::int, ${dto.note ?? null})
     `;
@@ -133,6 +141,14 @@ export class QrController {
       where: { id: rentalId },
       include: { products: { include: { product: true }, orderBy: { addedAt: 'asc' } } },
     });
+
+    const newItem = await this.prisma.rentalProduct.findFirst({
+      where: { rentalId, productId: dto.productId },
+      orderBy: { addedAt: 'desc' },
+    });
+    if (rental) await this.informixService.mirrorRentalRealtime(rental as any);
+    if (newItem) await this.informixService.mirrorRentalProductRealtime(newItem as any);
+
     return { account: this.serializeAccount(rental) };
   }
 
@@ -144,6 +160,13 @@ export class QrController {
       throw new BadRequestException('El carrito está vacío');
     }
 
+    const { rental: existingRental } = await this.findActiveRentalByCode(code);
+    if (existingRental?.checkoutRequested) {
+      throw new BadRequestException(
+        'Ya pediste la cuenta — no se pueden agregar más productos. Si necesitas algo más, comunícate con recepción.',
+      );
+    }
+
     await this.prisma.$transaction(async (tx) => {
       for (const item of dto.items) {
         await tx.$queryRaw`
@@ -153,6 +176,21 @@ export class QrController {
     });
 
     const { rental } = await this.findActiveRentalByCode(code);
+
+    // Refleja en Informix el alquiler completo y cada línea del carrito que
+    // se acaba de agregar — esto es lo que dispara su alerta de "llevar
+    // producto a la habitación" del lado de ellos.
+    if (rental) {
+      await this.informixService.mirrorRentalRealtime(rental as any);
+      for (const item of dto.items) {
+        const newItem = await this.prisma.rentalProduct.findFirst({
+          where: { rentalId: rental.id, productId: item.productId },
+          orderBy: { addedAt: 'desc' },
+        });
+        if (newItem) await this.informixService.mirrorRentalProductRealtime(newItem as any);
+      }
+    }
+
     return { account: this.serializeAccount(rental) };
   }
 

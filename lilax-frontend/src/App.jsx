@@ -9,6 +9,10 @@ import { api } from './api.js';
 
 const HOTEL_SLUG = 'lilax';
 
+function money(n) {
+  return '$' + Number(n).toFixed(2);
+}
+
 const PAYMENT_LABELS = {
   efectivo: 'Efectivo',
   tarjeta: 'Tarjeta',
@@ -39,6 +43,7 @@ export default function App() {
   const [activeRentals, setActiveRentals] = useState({}); // roomId -> rental
   const [pendingDeliveries, setPendingDeliveries] = useState([]);
   const [checkoutRequests, setCheckoutRequests] = useState([]);
+  const [courtesyNotifications, setCourtesyNotifications] = useState([]);
   const [toast, setToast] = useState('');
   const [modal, setModal] = useState(null); // { type: 'session'|'checkin'|'rental', room }
   const toastTimer = useRef(null);
@@ -96,6 +101,15 @@ export default function App() {
     }
   }, []);
 
+  const loadCourtesyNotifications = useCallback(async (hotelId) => {
+    try {
+      const items = await api(`/rentals/courtesy-notifications/${hotelId}`);
+      setCourtesyNotifications(items);
+    } catch (err) {
+      /* silencioso */
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     if (!session) return;
     await Promise.all([
@@ -104,8 +118,9 @@ export default function App() {
       loadActiveRentals(session.hotel.id),
       loadPendingDeliveries(session.hotel.id),
       loadCheckoutRequests(session.hotel.id),
+      loadCourtesyNotifications(session.hotel.id),
     ]);
-  }, [session, loadRooms, loadProducts, loadActiveRentals, loadPendingDeliveries, loadCheckoutRequests]);
+  }, [session, loadRooms, loadProducts, loadActiveRentals, loadPendingDeliveries, loadCheckoutRequests, loadCourtesyNotifications]);
 
   useEffect(() => {
     if (!session) return;
@@ -117,6 +132,7 @@ export default function App() {
     const deliveriesId = setInterval(() => {
       loadPendingDeliveries(session.hotel.id);
       loadCheckoutRequests(session.hotel.id);
+      loadCourtesyNotifications(session.hotel.id);
     }, 12000);
     return () => { clearInterval(roomsId); clearInterval(deliveriesId); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,6 +153,15 @@ export default function App() {
     setModal({ type: 'rental', room, rentalId: req.rentalId });
   }
 
+  async function handleAcknowledgeCourtesy(item) {
+    try {
+      await api(`/rentals/${item.rentalId}/acknowledge-courtesy`, { method: 'POST' });
+      setCourtesyNotifications((list) => list.filter((c) => c.rentalId !== item.rentalId));
+    } catch (err) {
+      notify('Error: ' + err.message);
+    }
+  }
+
   function handleLoggedIn(data) {
     setSession({ hotel: data.hotel, user: data.user });
   }
@@ -154,7 +179,7 @@ export default function App() {
       setModal({ type: 'rental', room, rentalId: rental.id });
     } else if (room.status === 'libre') {
       setModal({ type: 'checkin', room });
-    } else if (room.status === 'limpieza') {
+    } else if (room.status === 'pendiente_limpieza' || room.status === 'limpieza') {
       handleMarkClean(room);
     } else {
       notify('Esta habitación no está disponible ahora mismo');
@@ -162,7 +187,7 @@ export default function App() {
   }
 
   async function handleMarkClean(room) {
-    if (!window.confirm(`¿Marcar la habitación ${room.number} como LIBRE (limpieza terminada)?`)) return;
+    if (!window.confirm(`¿Marcar la habitación ${room.number} como LIBRE (limpieza terminada)?\n\nNota: normalmente esto lo hace el personal de limpieza desde su propia página.`)) return;
     try {
       await api(`/hotels/${session.hotel.id}/rooms/${room.id}/status`, {
         method: 'PATCH',
@@ -236,6 +261,23 @@ export default function App() {
         </div>
       )}
 
+      {courtesyNotifications.length > 0 && (
+        <div className="delivery-alerts">
+          {courtesyNotifications.map((c) => (
+            <div className="courtesy-alert" key={c.rentalId}>
+              <div className="delivery-alert-icon">🎁</div>
+              <div className="delivery-alert-text">
+                Se aplicó una cortesía en <strong>Habitación {c.roomNumber}</strong>: -{money(c.courtesyAmount)}
+                {c.courtesyNote && <div className="delivery-note">"{c.courtesyNote}"</div>}
+              </div>
+              <button className="btn btn-teal btn-auto" onClick={() => handleAcknowledgeCourtesy(c)}>
+                Enterado
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <main>
         <div className="row-between" style={{ marginBottom: 6 }}>
           <div className="section-title">Mapa de habitaciones</div>
@@ -251,7 +293,8 @@ export default function App() {
           <div className="legend-item"><span className="legend-dot" style={{ background: 'var(--teal)' }} />Libre</div>
           <div className="legend-item"><span className="legend-dot" style={{ background: 'var(--gold)' }} />Ocupada</div>
           <div className="legend-item"><span className="legend-dot" style={{ background: 'var(--danger)' }} />Tiempo extra</div>
-          <div className="legend-item"><span className="legend-dot" style={{ background: 'var(--sleep)' }} />Limpieza</div>
+          <div className="legend-item"><span className="legend-dot" style={{ background: '#8A7FBF' }} />Por limpiar</div>
+          <div className="legend-item"><span className="legend-dot" style={{ background: 'var(--sleep)' }} />En limpieza</div>
         </div>
 
         {rooms.length === 0 ? (

@@ -5,8 +5,8 @@ function money(n) {
   return '$' + Number(n).toFixed(2);
 }
 
-const STATUS_LABELS = { libre: 'Libres', ocupada: 'Ocupadas', tiempo_extra: 'Tiempo extra', limpieza: 'Limpieza', fuera_servicio: 'Fuera de servicio' };
-const STATUS_COLORS = { libre: 'var(--teal)', ocupada: 'var(--gold)', tiempo_extra: 'var(--danger)', limpieza: 'var(--sleep)', fuera_servicio: 'var(--sleep)' };
+const STATUS_LABELS = { libre: 'Libres', ocupada: 'Ocupadas', tiempo_extra: 'Tiempo extra', pendiente_limpieza: 'Por limpiar', limpieza: 'En limpieza', fuera_servicio: 'Fuera de servicio' };
+const STATUS_COLORS = { libre: 'var(--teal)', ocupada: 'var(--gold)', tiempo_extra: 'var(--danger)', pendiente_limpieza: '#8A7FBF', limpieza: 'var(--sleep)', fuera_servicio: 'var(--sleep)' };
 
 export default function RealtimePanel({ hotelId, notify }) {
   const [data, setData] = useState(null);

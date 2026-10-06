@@ -5,13 +5,15 @@ const STATUS_LABELS = {
   libre: 'Libre',
   ocupada: 'Ocupada',
   tiempo_extra: 'Tiempo extra',
-  limpieza: 'Limpieza',
+  pendiente_limpieza: 'Por limpiar',
+  limpieza: 'En limpieza',
   fuera_servicio: 'Fuera de servicio',
 };
 const STATUS_COLORS = {
   libre: 'var(--teal)',
   ocupada: 'var(--gold)',
   tiempo_extra: 'var(--danger)',
+  pendiente_limpieza: '#8A7FBF',
   limpieza: 'var(--sleep)',
   fuera_servicio: 'var(--sleep)',
 };

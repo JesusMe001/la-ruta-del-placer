@@ -1,0 +1,67 @@
+.hk-wrap{max-width:480px; margin:0 auto; padding:28px 20px 60px;}
+
+.hk-header{margin-bottom:24px;}
+.hk-greeting{font-family:'Big Shoulders Display',sans-serif; font-size:26px; font-weight:800; color:var(--gold); text-transform:uppercase; letter-spacing:0.03em;}
+.hk-subtitle{font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-top:2px;}
+
+.hk-section{margin-bottom:26px;}
+.hk-section-title{
+  font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:15px;
+  text-transform:uppercase; letter-spacing:0.05em; color:var(--text-dim); margin-bottom:12px;
+}
+.hk-empty{color:var(--text-dim); font-size:13.5px; padding:16px 0;}
+
+.hk-room-card{
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 18px; margin-bottom:10px;
+}
+.hk-room-card.mine{border-color:rgba(23,163,152,0.5); background:rgba(23,163,152,0.08);}
+.hk-room-number{font-weight:700; font-size:16px;}
+.hk-room-category{font-size:12px; color:var(--text-dim); margin-top:2px;}
+
+.hk-btn-claim{
+  background:linear-gradient(90deg, var(--gold), #FFDD57); color:#241433; border:none; border-radius:10px;
+  padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+.hk-btn-finish{
+  background:var(--teal); color:#08201d; border:none; border-radius:10px;
+  padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+
+.hk-modal-overlay{
+  position:fixed; inset:0; background:rgba(10,4,16,0.7); backdrop-filter:blur(3px);
+  display:flex; align-items:center; justify-content:center; z-index:200; padding:20px;
+}
+.hk-modal{
+  background:var(--surface); border:1px solid var(--border); border-radius:18px;
+  padding:26px 24px; max-width:340px; width:100%; text-align:center;
+}
+.hk-modal-title{font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:19px;}
+.hk-modal-sub{font-size:12.5px; color:var(--text-dim); margin-top:6px; margin-bottom:18px;}
+.hk-error{
+  background:rgba(232,84,42,0.15); border:1px solid rgba(232,84,42,0.4); color:#FFB199;
+  padding:10px 12px; border-radius:10px; font-size:13px; margin-bottom:14px;
+}
+.hk-code-input{
+  width:100%; padding:14px 16px; border-radius:12px; border:1.5px solid var(--border);
+  background:var(--surface-2); color:var(--text); font-size:18px; text-align:center; letter-spacing:0.1em;
+  outline:none; font-family:'IBM Plex Mono',monospace; box-sizing:border-box;
+}
+.hk-code-input:focus{border-color:var(--gold);}
+.hk-modal-actions{display:flex; gap:10px; margin-top:16px;}
+.hk-btn-cancel{
+  flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim);
+  border-radius:10px; padding:12px; font-size:13px; cursor:pointer;
+}
+.hk-btn-primary{
+  flex:1; padding:12px; border:none; border-radius:10px;
+  background:linear-gradient(90deg, var(--gold), #FFDD57); color:#241433; font-weight:700; font-size:13px; cursor:pointer;
+}
+.hk-btn-primary:disabled{opacity:0.6; cursor:default;}
+
+.hk-toast{
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:var(--surface-2); border:1px solid var(--border); padding:11px 20px;
+  border-radius:12px; font-size:13px; z-index:100; opacity:0; transition:opacity 0.2s; pointer-events:none;
+}
+.hk-toast.show{opacity:1;}

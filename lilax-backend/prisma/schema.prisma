@@ -13,6 +13,7 @@ enum RoomStatus {
   ocupada
   tiempo_extra
   limpieza
+  pendiente_limpieza
   fuera_servicio
 
   @@map("room_status")
@@ -83,6 +84,7 @@ model Hotel {
   syncOutbox     SyncOutbox[]
   loyaltyConfig  LoyaltyConfig?
   allowedNetworks AllowedNetwork[]
+  housekeepingStaff HousekeepingStaff[]
 
   @@map("hotels")
 }
@@ -118,6 +120,8 @@ model Room {
   qrCode     String     @unique @map("qr_code")
   legacyCodHabi Int?    @map("legacy_cod_habi")
   status     RoomStatus @default(libre)
+  cleaningStaffId   String?   @map("cleaning_staff_id")
+  cleaningClaimedAt DateTime? @map("cleaning_claimed_at")
   active     Boolean    @default(true)
   createdAt  DateTime   @default(now()) @map("created_at")
   updatedAt  DateTime   @updatedAt @map("updated_at")
@@ -125,6 +129,7 @@ model Room {
   hotel    Hotel        @relation(fields: [hotelId], references: [id])
   category RoomCategory @relation(fields: [categoryId], references: [id])
   rentals  Rental[]
+  cleaningStaff HousekeepingStaff? @relation(fields: [cleaningStaffId], references: [id])
 
   @@unique([hotelId, number])
   @@map("rooms")
@@ -217,6 +222,9 @@ model Rental {
   checkoutRequested       Boolean   @default(false) @map("checkout_requested")
   checkoutRequestedMethod String?   @map("checkout_requested_method")
   checkoutRequestedAt     DateTime? @map("checkout_requested_at")
+  courtesyAmount    Decimal   @default(0) @map("courtesy_amount")
+  courtesyNote      String?   @map("courtesy_note")
+  courtesyAcknowledged Boolean @default(true) @map("courtesy_acknowledged")
   checkIn           DateTime     @default(now()) @map("check_in")
   expectedCheckout  DateTime     @map("expected_checkout")
   checkOut          DateTime?    @map("check_out")
@@ -324,4 +332,19 @@ model AllowedNetwork {
   hotel Hotel @relation(fields: [hotelId], references: [id])
 
   @@map("allowed_networks")
+}
+
+model HousekeepingStaff {
+  id        String   @id @default(uuid())
+  hotelId   String   @map("hotel_id")
+  name      String
+  code      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  hotel Hotel  @relation(fields: [hotelId], references: [id])
+  rooms Room[]
+
+  @@unique([hotelId, code])
+  @@map("housekeeping_staff")
 }

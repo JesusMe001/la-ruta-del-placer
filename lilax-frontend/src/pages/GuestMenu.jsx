@@ -17,14 +17,40 @@ function getQrCode() {
   return params.get('code');
 }
 
-function groupByCategory(menu) {
-  const map = {};
+// El carrito se guarda en localStorage por habitación (código QR) para que
+// no se borre si el huésped recarga la página o se le apaga la pantalla
+// mientras arma su pedido.
+function cartStorageKey(code) {
+  return `lilax-cart-${code}`;
+}
+
+function loadStoredCart(code) {
+  if (!code) return {};
+  try {
+    const raw = window.localStorage.getItem(cartStorageKey(code));
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Agrupa por categoría normalizando may/min y espacios (evita "Bebidas" y
+// "BEBIDAS" apareciendo como dos categorías distintas por un dato sucio),
+// pero conserva el nombre REAL tal como viene de la base (Informix), nunca
+// una categoría inventada a partir de las carpetas de fotos.
+function groupByCategoryNormalized(menu) {
+  const order = [];
+  const map = new Map();
   menu.forEach((item) => {
-    const cat = item.category || 'Otros';
-    if (!map[cat]) map[cat] = [];
-    map[cat].push(item);
+    const label = (item.category || 'Otros').trim();
+    const key = label.toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, { key, label, items: [] });
+      order.push(key);
+    }
+    map.get(key).items.push(item);
   });
-  return map;
+  return order.map((key) => map.get(key));
 }
 
 function Sunburst() {
@@ -39,11 +65,27 @@ function Sunburst() {
 }
 
 const CATEGORY_ICONS = {
-  Bebidas: '🥤',
-  Comida: '🍔',
-  Aseo: '🧴',
-  Juguetes: '🎁',
+  bebidas: '🥤',
+  comida: '🍔',
+  alimentos: '🍔',
+  aseo: '🧴',
+  'aseo personal': '🧴',
+  juguetes: '🎁',
+  varios: '🛍️',
+  preservativos: '💗',
+  lubricantes: '💧',
+  licores: '🥃',
+  gaseosas: '🥤',
+  energizantes: '⚡',
+  cigarrillo: '🚬',
+  cervezas: '🍺',
+  'aguas y jugos': '🧃',
 };
+
+function iconForCategory(category) {
+  const key = (category || '').trim().toLowerCase();
+  return CATEGORY_ICONS[key] || '🛍️';
+}
 
 function ProductImage({ item, onClick }) {
   if (item.imageUrl) {
@@ -51,7 +93,7 @@ function ProductImage({ item, onClick }) {
   }
   return (
     <div className="product-image product-image-placeholder" onClick={onClick}>
-      {CATEGORY_ICONS[item.category] || '🛍️'}
+      {iconForCategory(item.category)}
     </div>
   );
 }
@@ -76,6 +118,7 @@ function ProductRow({ item, cartQty, onIncrement, onDecrement, onImageClick }) {
 }
 
 export default function GuestMenu() {
+  const code = getQrCode();
   const [state, setState] = useState({ loading: true, error: null, data: null });
   const [toast, setToast] = useState('');
   const [flashId, setFlashId] = useState(null);
@@ -86,13 +129,30 @@ export default function GuestMenu() {
   const [billOpen, setBillOpen] = useState(false);
   const [zoomedItem, setZoomedItem] = useState(null);
   const [confirmSendOpen, setConfirmSendOpen] = useState(false);
+  const [enteredMenu, setEnteredMenu] = useState(false);
+  const [activeCategory, setActiveCategory] = useState(null); // null = ver todo el menú
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   // carrito: { [productId]: { id, name, price, quantity, note } }
-  const [cart, setCart] = useState({});
+  // Se inicializa desde localStorage para que un refresh de página no borre
+  // lo que el huésped ya había agregado.
+  const [cart, setCart] = useState(() => loadStoredCart(code));
   const [cartOpen, setCartOpen] = useState(false);
   const [submittingCart, setSubmittingCart] = useState(false);
 
-  const code = getQrCode();
+  // Cada cambio en el carrito se guarda de inmediato en localStorage.
+  useEffect(() => {
+    if (!code) return;
+    try {
+      if (Object.keys(cart).length === 0) {
+        window.localStorage.removeItem(cartStorageKey(code));
+      } else {
+        window.localStorage.setItem(cartStorageKey(code), JSON.stringify(cart));
+      }
+    } catch {
+      /* localStorage puede no estar disponible (modo privado, etc.) — no bloquea la app */
+    }
+  }, [cart, code]);
 
   function load() {
     if (!code) {
@@ -105,6 +165,27 @@ export default function GuestMenu() {
   }
 
   useEffect(load, []);
+
+  // Refresca solo la cuenta (sin tocar loading/menu) para que el estado de
+  // "en camino" / entregado se actualice solo, sin que el huésped tenga que
+  // recargar la página cuando la cajera marca un producto como entregado.
+  function refreshAccount() {
+    if (!code) return;
+    api(`/qr/${code}`)
+      .then((data) => setState((s) => (s.data ? { ...s, data: { ...s.data, account: data.account } } : s)))
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    if (!code) return;
+    const id = setInterval(refreshAccount, 6000);
+    return () => clearInterval(id);
+  }, [code]);
+
+  function openCategory(catKey) {
+    setEnteredMenu(true);
+    setActiveCategory(catKey);
+  }
 
   function showToast(msg) {
     setToast(msg);
@@ -192,7 +273,10 @@ export default function GuestMenu() {
   }
 
   const account = state.data?.account;
-  const canOrder = !!account;
+  // Una vez que el huésped pidió la cuenta, ya no puede seguir agregando
+  // consumo (el backend también lo bloquea, esto es solo para que la UI
+  // no lo deje ni intentarlo).
+  const canOrder = !!account && !account.checkoutRequested;
 
   async function submitCheckoutRequest() {
     setSubmittingCheckout(true);
@@ -249,8 +333,62 @@ export default function GuestMenu() {
         <div className="empty">Aún no hay productos cargados para este hotel.</div>
       )}
 
-      {state.data && state.data.menu.length > 0 && (
+      {state.data && state.data.menu.length > 0 && !enteredMenu && (() => {
+        const categories = groupByCategoryNormalized(state.data.menu).map((c) => {
+          const withImage = c.items.find((i) => i.imageUrl);
+          return {
+            key: c.key,
+            label: c.label,
+            count: c.items.length,
+            image: withImage ? withImage.imageUrl : null,
+          };
+        });
+        const visible = showAllCategories ? categories : categories.slice(0, 4);
+        const hiddenCount = categories.length - visible.length;
+
+        return (
+          <div className="category-preview">
+            <div className="category-preview-title">¿Qué se te antoja?</div>
+            <div className="category-preview-grid">
+              {visible.map((cat) => (
+                <button key={cat.key} className="category-preview-card" onClick={() => openCategory(cat.key)}>
+                  <div className="category-preview-media">
+                    {cat.image ? (
+                      <img src={cat.image} alt={cat.label} className="category-preview-image" />
+                    ) : (
+                      <div className="category-preview-icon">{iconForCategory(cat.label)}</div>
+                    )}
+                  </div>
+                  <div className="category-preview-name">{cat.label}</div>
+                </button>
+              ))}
+            </div>
+            {hiddenCount > 0 && (
+              <button className="category-preview-more" onClick={() => setShowAllCategories(true)}>
+                Ver más categorías ({hiddenCount}) ↓
+              </button>
+            )}
+            {showAllCategories && categories.length > 4 && (
+              <button className="category-preview-more" onClick={() => setShowAllCategories(false)}>
+                Ver menos ↑
+              </button>
+            )}
+            <button className="category-preview-all" onClick={() => openCategory(null)}>
+              Ver todo el menú →
+            </button>
+          </div>
+        );
+      })()}
+
+      {state.data && state.data.menu.length > 0 && enteredMenu && (
         <>
+          {activeCategory && (
+            <div className="active-category-title">
+              {(state.data.menu.find(
+                (item) => (item.category || 'Otros').trim().toLowerCase() === activeCategory,
+              )?.category) || 'Otros'}
+            </div>
+          )}
           <div className="search-wrap">
             <input
               className="search-input"
@@ -263,17 +401,26 @@ export default function GuestMenu() {
 
           {(() => {
             const term = search.trim().toLowerCase();
-            const filtered = state.data.menu.filter(
+            let filtered = state.data.menu.filter(
               (item) => !term || item.name.toLowerCase().includes(term),
             );
+            if (activeCategory) {
+              filtered = filtered.filter(
+                (item) => (item.category || 'Otros').trim().toLowerCase() === activeCategory,
+              );
+            }
 
             if (filtered.length === 0) {
               return <div className="empty">No encontramos productos que coincidan con tu búsqueda.</div>;
             }
 
-            return Object.entries(groupByCategory(filtered)).map(([cat, items]) => (
-              <div key={cat}>
-                <div className="section-title">{cat}</div>
+            const groups = activeCategory
+              ? groupByCategoryNormalized(filtered).slice(0, 1)
+              : groupByCategoryNormalized(filtered);
+
+            return groups.map(({ key, label, items }) => (
+              <div key={key} id={`cat-${key}`}>
+                {!activeCategory && <div className="section-title">{label}</div>}
                 {items.map((item) => (
                   <div key={item.id} className={flashId === item.id ? 'flash' : ''}>
                     {canOrder ? (
@@ -306,12 +453,23 @@ export default function GuestMenu() {
       <div className="note">
         {canOrder
           ? 'Agrega lo que quieras al carrito y envíalo cuando termines. Toca "Ver mi cuenta" arriba para ver el total en cualquier momento.'
-          : 'Para pedir cualquiera de estos productos, comunícate con recepción por el teléfono de la habitación.'}
+          : account?.checkoutRequested
+            ? 'Ya pediste la cuenta — recepción va en camino. Si necesitas algo más, comunícate con recepción por el teléfono de la habitación.'
+            : 'Para pedir cualquiera de estos productos, comunícate con recepción por el teléfono de la habitación.'}
       </div>
 
       <div className={'toast' + (toast ? ' show' : '')}>{toast}</div>
 
-      {cartCount > 0 && !cartOpen && (
+      {enteredMenu && (
+        <button
+          className={'back-to-categories-fab' + (cartCount > 0 && !cartOpen ? ' with-cart' : '')}
+          onClick={() => { setEnteredMenu(false); setActiveCategory(null); setSearch(''); }}
+        >
+          ‹ Categorías
+        </button>
+      )}
+
+      {cartCount > 0 && !cartOpen && canOrder && (
         <button className="cart-fab" onClick={() => setCartOpen(true)}>
           🛒 Ver carrito ({cartCount}) — {money(cartTotal)}
         </button>
@@ -360,7 +518,7 @@ export default function GuestMenu() {
               <button
                 className="add-btn"
                 onClick={() => setConfirmSendOpen(true)}
-                disabled={submittingCart || cartItems.length === 0}
+                disabled={submittingCart || cartItems.length === 0 || !canOrder}
               >
                 Enviar pedido
               </button>
@@ -490,7 +648,7 @@ export default function GuestMenu() {
               <img src={zoomedItem.imageUrl} alt={zoomedItem.name} className="zoom-image" />
             ) : (
               <div className="zoom-image zoom-image-placeholder">
-                {CATEGORY_ICONS[zoomedItem.category] || '🛍️'}
+                {iconForCategory(zoomedItem.category)}
               </div>
             )}
             <div className="zoom-name">{zoomedItem.name}</div>

@@ -7,6 +7,9 @@ import RoomsPanel from './components/RoomsPanel.jsx';
 import QrCodesPanel from './components/QrCodesPanel.jsx';
 import LoyaltyPanel from './components/LoyaltyPanel.jsx';
 import NetworkPanel from './components/NetworkPanel.jsx';
+import HousekeepingPanel from './components/HousekeepingPanel.jsx';
+import CourtesyPanel from './components/CourtesyPanel.jsx';
+import InformixPanel from './components/InformixPanel.jsx';
 
 const HOTEL_SLUG = 'lilax';
 const TABS = [
@@ -16,6 +19,9 @@ const TABS = [
   { key: 'qrcodes', label: 'Códigos QR' },
   { key: 'loyalty', label: 'Fidelización' },
   { key: 'network', label: 'Red' },
+  { key: 'housekeeping', label: 'Limpieza' },
+  { key: 'courtesy', label: 'Cortesías' },
+  { key: 'informix', label: 'Informix' },
   { key: 'users', label: 'Usuarios' },
 ];
 
@@ -120,6 +126,9 @@ export default function AdminApp() {
         {tab === 'qrcodes' && <QrCodesPanel hotelId={session.hotel.id} hotelName={session.hotel.name} notify={notify} />}
         {tab === 'loyalty' && <LoyaltyPanel hotelId={session.hotel.id} notify={notify} />}
         {tab === 'network' && <NetworkPanel hotelId={session.hotel.id} notify={notify} />}
+        {tab === 'housekeeping' && <HousekeepingPanel hotelId={session.hotel.id} notify={notify} />}
+        {tab === 'courtesy' && <CourtesyPanel hotelId={session.hotel.id} notify={notify} />}
+        {tab === 'informix' && <InformixPanel hotelId={session.hotel.id} notify={notify} />}
         {tab === 'users' && <UsersPanel hotelId={session.hotel.id} notify={notify} />}
       </main>
 

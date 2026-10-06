@@ -1,0 +1,28 @@
+# Fotos originales del Drive "productos hoteles" — se quedan solo en Descargas.
+# Las ya confirmadas/emparejadas viven en lilax-frontend/public/products/, esas SÍ se versionan.
+/Aguas y Jugos/
+/Alimentos/
+/Aseo personal/
+/Cervezas/
+/Cigarrillo/
+/Energizantes/
+/GASEOSAS/
+/LICORES/
+/LUBRICANTES/
+/PRESERVATIVOS/
+/VARIOS/
+
+# Reporte generado por verificar-productos-drive.ps1 (se puede regenerar corriendo el script)
+/reporte-verificacion-productos.csv
+
+# Herramientas de desarrollo local: apuntan al DSN del ERP y no forman parte de lo que se entrega
+/*.ps1
+
+# Parche manual de un usuario de prueba (trae un hash de contraseña real)
+/lilax-backend/fix_user.sql
+
+# Archivos del sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

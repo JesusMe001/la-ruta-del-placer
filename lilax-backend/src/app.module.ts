@@ -13,6 +13,8 @@ import { UsersModule } from './users/users.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { NetworkModule } from './network/network.module';
+import { HousekeepingModule } from './housekeeping/housekeeping.module';
+import { InformixModule } from './informix/informix.module';
 import { AutoExtensionScheduler } from './scheduler/auto-extension.scheduler';
 
 @Module({
@@ -31,6 +33,8 @@ import { AutoExtensionScheduler } from './scheduler/auto-extension.scheduler';
     DashboardModule,
     LoyaltyModule,
     NetworkModule,
+    HousekeepingModule,
+    InformixModule,
   ],
   providers: [AutoExtensionScheduler],
 })

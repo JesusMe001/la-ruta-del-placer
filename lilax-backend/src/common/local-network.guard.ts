@@ -34,6 +34,18 @@ function normalizeIp(rawIp: string): string {
   return ip;
 }
 
+// Detrás de Cloudflare Tunnel todas las conexiones llegan desde cloudflared
+// (127.0.0.1); la IP real del cliente viene en CF-Connecting-IP. Solo se
+// confía en ese header con TRUST_PROXY=true, porque de lo contrario cualquiera
+// podría enviarlo para falsificar su IP.
+function getClientIp(request: any): string {
+  if (process.env.TRUST_PROXY === 'true') {
+    const cfIp = request.headers?.['cf-connecting-ip'];
+    if (typeof cfIp === 'string' && cfIp.trim()) return normalizeIp(cfIp.trim());
+  }
+  return normalizeIp(request.ip);
+}
+
 @Injectable()
 export class LocalNetworkGuard implements CanActivate {
   private readonly logger = new Logger(LocalNetworkGuard.name);
@@ -42,24 +54,34 @@ export class LocalNetworkGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const ip = normalizeIp(request.ip);
+    const ip = getClientIp(request);
     const code: string | undefined = request.params?.code;
+    const hotelSlug: string | undefined = request.params?.hotelSlug;
 
     let ranges: string[] = [];
+    let hotelId: string | undefined;
 
     if (code) {
       const room = await this.prisma.room.findUnique({
         where: { qrCode: code },
         select: { hotelId: true },
       });
-      if (room) {
-        const custom = await this.prisma.allowedNetwork.findMany({
-          where: { hotelId: room.hotelId },
-          select: { cidr: true },
-        });
-        if (custom.length > 0) {
-          ranges = custom.map((c) => c.cidr);
-        }
+      hotelId = room?.hotelId;
+    } else if (hotelSlug) {
+      const hotel = await this.prisma.hotel.findUnique({
+        where: { slug: hotelSlug },
+        select: { id: true },
+      });
+      hotelId = hotel?.id;
+    }
+
+    if (hotelId) {
+      const custom = await this.prisma.allowedNetwork.findMany({
+        where: { hotelId },
+        select: { cidr: true },
+      });
+      if (custom.length > 0) {
+        ranges = custom.map((c) => c.cidr);
       }
     }
 

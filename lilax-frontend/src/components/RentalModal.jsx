@@ -78,6 +78,13 @@ export default function RentalModal({ room, rentalId, products, onClose, onChang
         <div className="stat-line"><span className="label">Vence</span><span className="value mono">{fmtTime(detail.expectedCheckout)}</span></div>
         <div className="stat-line"><span className="label">Recargos aplicados</span><span className="value">{detail.extensions.length} ({money(detail.extraChargesTotal)})</span></div>
 
+        {Number(detail.courtesyAmount) > 0 && (
+          <div className="stat-line" style={{ color: 'var(--teal)' }}>
+            <span className="label" style={{ color: 'var(--teal)' }}>🎁 Cortesía ({detail.courtesyNote || 'aplicada'})</span>
+            <span className="value">-{money(detail.courtesyAmount)}</span>
+          </div>
+        )}
+
         {detail.products.length > 0 && (
           <div style={{ marginTop: 14 }}>
             <label style={{ fontSize: 12, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
